@@ -183,7 +183,7 @@ go.uber.org/zap/zapcore
 ## explicit; go 1.17
 golang.org/x/crypto/pkcs12
 golang.org/x/crypto/pkcs12/internal/rc2
-# golang.org/x/net v0.0.0-20210825183410-e898025ed96a
+# golang.org/x/net v0.0.0-20211015210444-4f30a5c0130f
 ## explicit; go 1.17
 golang.org/x/net/context
 golang.org/x/net/context/ctxhttp
@@ -239,6 +239,10 @@ golang.org/x/text/unicode/norm
 # golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac
 ## explicit
 golang.org/x/time/rate
+# golang.org/x/tools v0.1.9
+## explicit; go 1.17
+golang.org/x/tools/go/ast/astutil
+golang.org/x/tools/internal/typeparams
 # gomodules.xyz/jsonpatch/v2 v2.2.0
 ## explicit; go 1.12
 gomodules.xyz/jsonpatch/v2
