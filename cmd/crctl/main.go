@@ -24,34 +24,17 @@ type PolicyStatement struct {
 	Condition map[string]map[string]string `json:"Condition"`
 }
 
-type IAMPolicyCondition map[string]IAMPolicyConditionKeyValue
+const src = `
+package main
 
-type IAMPolicyConditionKeyValue map[string]interface{}
-
-type AWSValue []string
-
-func (v *AWSValue) UnmarshalJSON(input []byte) error {
-	var raw interface{}
-	json.Unmarshal(input, &raw)
-	var elements []string
-	switch item := raw.(type) {
-	case string:
-		elements = []string{item}
-	case []interface{}:
-		elements = make([]string, len(item))
-		for i, it := range item {
-			elements[i] = fmt.Sprintf("%s", it)
-		}
-	default:
-		return fmt.Errorf("unsupported type %t in list", item)
-	}
-	*v = elements
-	return nil
+func GetIAMPolicy() IAMPolicy {
+    return IAMPolicy{}
 }
+`
 
 func main() {
 	fs := token.NewFileSet()
-	file, err := parser.ParseFile(fs, "./cloud_credential_tmpl.go", nil, 0)
+	file, err := parser.ParseFile(fs, "", src, 0)
 	if err != nil {
 		fmt.Println("Can't parse file", err)
 	}
@@ -99,11 +82,8 @@ func main() {
 						Type: ast.NewIdent("IAMPolicy"),
 						Elts: []ast.Expr{
 							&ast.KeyValueExpr{
-								Key: ast.NewIdent("Version"),
-								Value: &ast.BasicLit{
-									Kind:  token.STRING,
-									Value: "\"somthing else\"",
-								},
+								Key:   ast.NewIdent("Version"),
+								Value: buildStrings(policy.Version),
 							},
 							&ast.KeyValueExpr{
 								Key: ast.NewIdent("Statement"),
@@ -124,6 +104,13 @@ func main() {
 	})
 
 	fmt.Println("Modified AST:")
+
+	opFs, err := os.Create("iam_policy.go")
+	if err != nil {
+		panic(err)
+	}
+
+	printer.Fprint(opFs, fs, file)
 	printer.Fprint(os.Stdout, fs, file)
 }
 
