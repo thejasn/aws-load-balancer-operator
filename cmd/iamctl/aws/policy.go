@@ -11,7 +11,7 @@ type iamPolicy struct {
 }
 type policyStatement struct {
 	Effect    string              `json:"Effect,omitempty"`
-	Action    []string            `json:"Action,omitempty"`
+	Action    AWSValue            `json:"Action,omitempty"`
 	Resource  AWSValue            `json:"Resource,omitempty"`
 	Condition *iamPolicyCondition `json:"Condition,omitempty"`
 }

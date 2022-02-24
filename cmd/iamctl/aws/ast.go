@@ -93,19 +93,19 @@ func GenerateIAMPolicy(input, output, pkg string) {
 	fs := token.NewFileSet()
 	file, err := parser.ParseFile(fs, "", in, 0)
 	if err != nil {
-		fmt.Println("Can't parse file", err)
+		panic(fmt.Errorf("failed to parse template %v", err))
 	}
 
 	jsFs, err := ioutil.ReadFile(input)
 	if err != nil {
-		panic(fmt.Errorf("cannot parse input file %v", err))
+		panic(fmt.Errorf("failed to read input file %v", err))
 	}
 
 	policy := iamPolicy{}
 
 	err = json.Unmarshal([]byte(jsFs), &policy)
 	if err != nil {
-		panic(fmt.Errorf("invalid input file %v", err))
+		panic(fmt.Errorf("failed to parse policy JSON %v", err))
 	}
 
 	exprs := make([]ast.Expr, 0, len(policy.Statement))

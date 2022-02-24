@@ -22,6 +22,9 @@ const (
 func (r *AWSLoadBalancerControllerReconciler) currentCredentialsRequest(ctx context.Context, name types.NamespacedName) (bool, *cco.CredentialsRequest, error) {
 	cr := &cco.CredentialsRequest{}
 	if err := r.Client.Get(ctx, name, cr); err != nil {
+		if errors.IsNotFound(err) {
+			return false, nil, nil
+		}
 		return false, nil, err
 	}
 	return true, cr, nil
@@ -34,8 +37,8 @@ func (r *AWSLoadBalancerControllerReconciler) ensureCredentialsRequest(ctx conte
 	reqLogger.Info("reconciling credentials secret for externalDNS instance")
 
 	exists, current, err := r.currentCredentialsRequest(ctx, credReq)
-	if errors.IsNotFound(err) {
-		reqLogger.Info("externalDNS not found; reconciliation will be skipped")
+	if err != nil {
+		reqLogger.Info("failed to find existing credential request due to %v", err)
 		return err
 	}
 

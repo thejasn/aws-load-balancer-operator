@@ -14,6 +14,6 @@ type IAMPolicy struct {
 }
 
 func GetIAMPolicy() IAMPolicy {
-	return IAMPolicy{}
+    return IAMPolicy{}
 }
 `
