@@ -37,7 +37,10 @@ import (
 	albo "github.com/openshift/aws-load-balancer-operator/api/v1alpha1"
 )
 
-const allowedResourceName = "cluster"
+const (
+	controllerName               = "cluster"
+	controllerServiceAccountName = "cluster-sa"
+)
 
 // AWSLoadBalancerControllerReconciler reconciles a AWSLoadBalancerController object
 type AWSLoadBalancerControllerReconciler struct {
@@ -120,13 +123,13 @@ func (r *AWSLoadBalancerControllerReconciler) SetupWithManager(mgr ctrl.Manager)
 func reconcileClusterNamedResource() predicate.Funcs {
 	return predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
-			return strings.EqualFold(allowedResourceName, e.Object.GetName())
+			return strings.EqualFold(controllerName, e.Object.GetName())
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			return strings.EqualFold(allowedResourceName, e.ObjectNew.GetName())
+			return strings.EqualFold(controllerName, e.ObjectNew.GetName())
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
-			return strings.EqualFold(allowedResourceName, e.Object.GetName())
+			return strings.EqualFold(controllerName, e.Object.GetName())
 		},
 	}
 }
