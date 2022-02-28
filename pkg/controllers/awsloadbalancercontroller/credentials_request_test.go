@@ -17,9 +17,10 @@ import (
 )
 
 const (
-	testOperatorNamespace      = test.OperatorNamespace
-	testOperandNamespace       = test.OperandNamespace
-	testCredentialsRequestName = "cluster"
+	testOperatorNamespace           = test.OperatorNamespace
+	testOperandNamespace            = test.OperandNamespace
+	testCredentialsRequestName      = credentialRequestName
+	testCredentialsRequestNamespace = credentialRequestNamespace
 )
 
 func TestEnsureCredentialsRequest(t *testing.T) {
@@ -44,7 +45,7 @@ func TestEnsureCredentialsRequest(t *testing.T) {
 					EventType: watch.Added,
 					ObjType:   "credentialsrequest",
 					NamespacedName: types.NamespacedName{
-						Namespace: test.OperandNamespace,
+						Namespace: testCredentialsRequestNamespace,
 						Name:      testCredentialsRequestName,
 					},
 				},
@@ -61,7 +62,7 @@ func TestEnsureCredentialsRequest(t *testing.T) {
 					EventType: watch.Modified,
 					ObjType:   "credentialsrequest",
 					NamespacedName: types.NamespacedName{
-						Namespace: test.OperandNamespace,
+						Namespace: testCredentialsRequestNamespace,
 						Name:      testCredentialsRequestName,
 					},
 				},
@@ -113,7 +114,7 @@ func testCredentialsRequest() *cco.CredentialsRequest {
 	return &cco.CredentialsRequest{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      testCredentialsRequestName,
-			Namespace: testOperandNamespace,
+			Namespace: testCredentialsRequestNamespace,
 		},
 		Spec: cco.CredentialsRequestSpec{
 			ProviderSpec: testAWSProviderSpec(),

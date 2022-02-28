@@ -38,6 +38,7 @@ import (
 )
 
 const (
+	baseResourceName             = "aws-load-balancer"
 	controllerName               = "cluster"
 	controllerServiceAccountName = "cluster-sa"
 )

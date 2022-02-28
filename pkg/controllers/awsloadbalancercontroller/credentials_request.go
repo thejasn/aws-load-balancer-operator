@@ -15,7 +15,8 @@ import (
 )
 
 const (
-	credentialRequestName = "cluster"
+	credentialRequestName      = "aws-load-balancer-credentials-request"
+	credentialRequestNamespace = "openshift-cloud-credential-operator"
 )
 
 // currentCredentialsRequest returns true if credentials request exists.
@@ -31,7 +32,8 @@ func (r *AWSLoadBalancerControllerReconciler) currentCredentialsRequest(ctx cont
 }
 
 func (r *AWSLoadBalancerControllerReconciler) ensureCredentialsRequest(ctx context.Context) error {
-	credReq := types.NamespacedName{Name: credentialRequestName, Namespace: r.Namespace}
+
+	credReq := createCredentialsRequestName(credentialRequestName)
 
 	reqLogger := log.FromContext(ctx).WithValues("credentialsrequest", credReq)
 	reqLogger.Info("reconciling credentials secret for externalDNS instance")
@@ -42,7 +44,10 @@ func (r *AWSLoadBalancerControllerReconciler) ensureCredentialsRequest(ctx conte
 		return err
 	}
 
-	desired, err := desiredCredentialsRequest(ctx, credReq)
+	// The secret created will be in the operand namespace.
+	secretRef := createCredentialsSecretRef(r.Namespace)
+
+	desired, err := desiredCredentialsRequest(ctx, credReq, secretRef)
 	if err != nil {
 		return err
 	}
@@ -67,14 +72,14 @@ func (r *AWSLoadBalancerControllerReconciler) ensureCredentialsRequest(ctx conte
 
 func (r *AWSLoadBalancerControllerReconciler) createCredentialsRequest(ctx context.Context, desired *cco.CredentialsRequest) error {
 	if err := r.Client.Create(ctx, desired); err != nil {
-		return fmt.Errorf("failed to create externalDNS credentials request %s: %w", desired.Name, err)
+		return fmt.Errorf("failed to create aws-load-balancer credentials request %s: %w", desired.Name, err)
 	}
 	return nil
 }
 
 func (r *AWSLoadBalancerControllerReconciler) updateCredentialsRequest(ctx context.Context, current *cco.CredentialsRequest, desired *cco.CredentialsRequest) (bool, error) {
 	var updated *cco.CredentialsRequest
-	changed, err := credentialsRequestChanged(current, desired)
+	changed, err := isCredentialsRequestChanged(current, desired)
 	if err != nil {
 		return false, err
 	}
@@ -91,7 +96,7 @@ func (r *AWSLoadBalancerControllerReconciler) updateCredentialsRequest(ctx conte
 	return true, nil
 }
 
-func desiredCredentialsRequest(ctx context.Context, name types.NamespacedName) (*cco.CredentialsRequest, error) {
+func desiredCredentialsRequest(ctx context.Context, name types.NamespacedName, secretRef corev1.ObjectReference) (*cco.CredentialsRequest, error) {
 	credentialsRequest := &cco.CredentialsRequest{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name.Name,
@@ -99,10 +104,7 @@ func desiredCredentialsRequest(ctx context.Context, name types.NamespacedName) (
 		},
 		Spec: cco.CredentialsRequestSpec{
 			ServiceAccountNames: []string{controllerServiceAccountName},
-			SecretRef: corev1.ObjectReference{
-				Name:      name.Name,
-				Namespace: name.Namespace,
-			},
+			SecretRef:           secretRef,
 		},
 	}
 
@@ -125,7 +127,23 @@ func createProviderConfig(codec *cco.ProviderCodec) (*runtime.RawExtension, erro
 	})
 }
 
-func credentialsRequestChanged(current, desired *cco.CredentialsRequest) (bool, error) {
+// The credentials request will always default to the fixed namespace, so as to
+// make it future proof. The credentials operator will have limitations in the future, wrt watched namespaces.
+func createCredentialsRequestName(name string) types.NamespacedName {
+	return types.NamespacedName{
+		Name:      name,
+		Namespace: credentialRequestNamespace,
+	}
+}
+
+func createCredentialsSecretRef(operandNamespace string) corev1.ObjectReference {
+	return corev1.ObjectReference{
+		Name:      controllerName + "-credentials-",
+		Namespace: operandNamespace,
+	}
+}
+
+func isCredentialsRequestChanged(current, desired *cco.CredentialsRequest) (bool, error) {
 
 	if current.Name != desired.Name {
 		return true, nil
