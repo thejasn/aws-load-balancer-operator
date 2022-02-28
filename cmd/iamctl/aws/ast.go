@@ -202,6 +202,5 @@ func GenerateIAMPolicy(input, output, pkg string) {
 		panic(err)
 	}
 
-	cfg := &printer.Config{Mode: printer.UseSpaces, Tabwidth: 4, Indent: 0}
-	cfg.Fprint(opFs, fs, file)
+	printer.Fprint(opFs, fs, file)
 }

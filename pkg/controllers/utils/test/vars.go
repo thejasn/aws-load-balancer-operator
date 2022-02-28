@@ -17,18 +17,14 @@ limitations under the License.
 package test
 
 import (
-	cco "github.com/openshift/cloud-credential-operator/pkg/apis/cloudcredential/v1"
-
 	albv1aplha1 "github.com/openshift/aws-load-balancer-operator/api/v1alpha1"
+	cco "github.com/openshift/cloud-credential-operator/pkg/apis/cloudcredential/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 )
 
 const (
-	Name              = "test"
-	OperandNamespace  = "aws-load-balancer"
-	OperandName       = "aws-load-balancer-test"
-	OperandImage      = "quay.io/test/external-dns:latest"
+	OperandImage      = "quay.io/test/aws-load-balancer:latest"
 	OperatorNamespace = "aws-load-balancer-operator"
 )
 

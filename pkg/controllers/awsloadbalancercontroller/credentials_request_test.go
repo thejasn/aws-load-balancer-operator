@@ -18,7 +18,6 @@ import (
 
 const (
 	testOperatorNamespace           = test.OperatorNamespace
-	testOperandNamespace            = test.OperandNamespace
 	testCredentialsRequestName      = credentialRequestName
 	testCredentialsRequestNamespace = credentialRequestNamespace
 )
@@ -55,7 +54,7 @@ func TestEnsureCredentialsRequest(t *testing.T) {
 		{
 			name: "Change in Credential Request",
 			existingObjects: []runtime.Object{
-				testCredentialsRequest(),
+				testPartialCredentialsRequest(),
 			},
 			expectedEvents: []test.Event{
 				{
@@ -69,15 +68,25 @@ func TestEnsureCredentialsRequest(t *testing.T) {
 			},
 			errExpected: false,
 		},
+		{
+			name: "No change in Credential Request",
+			existingObjects: []runtime.Object{
+				testCompleteCredentialsRequest(),
+			},
+			expectedEvents: []test.Event{},
+			errExpected:    false,
+		},
 	}
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			cl := fake.NewClientBuilder().WithScheme(test.Scheme).WithRuntimeObjects(tc.existingObjects...).Build()
+			cl := fake.NewClientBuilder().WithScheme(test.Scheme).
+				WithRuntimeObjects(tc.existingObjects...).
+				Build()
 
 			r := &AWSLoadBalancerControllerReconciler{
 				Client:    cl,
-				Namespace: test.OperandNamespace,
+				Namespace: testOperatorNamespace,
 				Image:     test.OperandImage,
 			}
 
@@ -110,7 +119,7 @@ func TestEnsureCredentialsRequest(t *testing.T) {
 	}
 }
 
-func testCredentialsRequest() *cco.CredentialsRequest {
+func testPartialCredentialsRequest() *cco.CredentialsRequest {
 	return &cco.CredentialsRequest{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      testCredentialsRequestName,
@@ -118,6 +127,21 @@ func testCredentialsRequest() *cco.CredentialsRequest {
 		},
 		Spec: cco.CredentialsRequestSpec{
 			ProviderSpec: testAWSProviderSpec(),
+		},
+	}
+}
+
+func testCompleteCredentialsRequest() *cco.CredentialsRequest {
+	codec, _ := cco.NewCodec()
+	cfg, _ := createProviderConfig(codec)
+	return &cco.CredentialsRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      testCredentialsRequestName,
+			Namespace: testCredentialsRequestNamespace,
+		},
+		Spec: cco.CredentialsRequestSpec{
+			ProviderSpec: cfg,
+			SecretRef:    createCredentialsSecretRef(testOperatorNamespace),
 		},
 	}
 }

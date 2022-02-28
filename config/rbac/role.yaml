@@ -8,6 +8,18 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - serviceaccounts
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
   - services
   verbs:
   - create
@@ -83,7 +95,7 @@ rules:
   - patch
   - update
 - apiGroups:
-  - rbac.k8s.io
+  - rbac.authorization.k8s.io
   resources:
   - clusterrolebindings
   - clusterroles

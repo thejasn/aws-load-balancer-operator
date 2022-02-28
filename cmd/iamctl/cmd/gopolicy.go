@@ -20,9 +20,9 @@ var (
 	pkg string
 )
 
-// gopolicyCmd represents the gopolicy command
-var gopolicyCmd = &cobra.Command{
-	Use:   "gopolicy",
+// genpolicyCmd represents the genpolicy command
+var genpolicyCmd = &cobra.Command{
+	Use:   "genpolicy",
 	Short: "Used to generate AWS IAM Policy from policy json.",
 	Long:  `Used for creating/updating iam policies required by the aws loadbalancer operator.`,
 	Run: func(cmd *cobra.Command, args []string) {
@@ -31,13 +31,13 @@ var gopolicyCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(gopolicyCmd)
+	rootCmd.AddCommand(genpolicyCmd)
 
-	gopolicyCmd.PersistentFlags().StringVarP(&inputFile, "input-file", "i", "", "Used to specify input JSON file path.")
-	gopolicyCmd.MarkPersistentFlagRequired("input-file")
+	genpolicyCmd.PersistentFlags().StringVarP(&inputFile, "input-file", "i", "", "Used to specify input JSON file path.")
+	genpolicyCmd.MarkPersistentFlagRequired("input-file")
 
-	gopolicyCmd.PersistentFlags().StringVarP(&outputFile, "output-file", "o", "", "Used to specify output Go file path.")
-	gopolicyCmd.MarkPersistentFlagRequired("output-file")
+	genpolicyCmd.PersistentFlags().StringVarP(&outputFile, "output-file", "o", "", "Used to specify output Go file path.")
+	genpolicyCmd.MarkPersistentFlagRequired("output-file")
 
-	gopolicyCmd.PersistentFlags().StringVarP(&pkg, "package", "p", "main", "Used to specify output Go file path.")
+	genpolicyCmd.PersistentFlags().StringVarP(&pkg, "package", "p", "main", "Used to specify output Go file path.")
 }

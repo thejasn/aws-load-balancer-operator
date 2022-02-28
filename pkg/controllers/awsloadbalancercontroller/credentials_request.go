@@ -40,15 +40,16 @@ func (r *AWSLoadBalancerControllerReconciler) ensureCredentialsRequest(ctx conte
 
 	exists, current, err := r.currentCredentialsRequest(ctx, credReq)
 	if err != nil {
-		reqLogger.Info("failed to find existing credential request due to %v", err)
+		reqLogger.Error(err, "failed to find existing credential request: ", credReq)
 		return err
 	}
 
-	// The secret created will be in the operand namespace.
+	// The secret created will be in the operator namespace.
 	secretRef := createCredentialsSecretRef(r.Namespace)
 
 	desired, err := desiredCredentialsRequest(ctx, credReq, secretRef)
 	if err != nil {
+		reqLogger.Error(err, "failed to build desired credential request")
 		return err
 	}
 
@@ -61,6 +62,7 @@ func (r *AWSLoadBalancerControllerReconciler) ensureCredentialsRequest(ctx conte
 	}
 
 	if updated, err := r.updateCredentialsRequest(ctx, current, desired); err != nil {
+		reqLogger.Error(err, "failed to update credential request")
 		return err
 	} else if updated {
 		_, _, err = r.currentCredentialsRequest(ctx, credReq)
@@ -138,7 +140,7 @@ func createCredentialsRequestName(name string) types.NamespacedName {
 
 func createCredentialsSecretRef(operandNamespace string) corev1.ObjectReference {
 	return corev1.ObjectReference{
-		Name:      controllerName + "-credentials-",
+		Name:      controllerSecretName,
 		Namespace: operandNamespace,
 	}
 }
