@@ -110,27 +110,30 @@ func GenerateIAMPolicy(input, output, pkg string) {
 
 	exprs := make([]ast.Expr, 0, len(policy.Statement))
 	for _, p := range policy.Statement {
+
+		// Workaround since cloud credential operator doesn't
+		// support multiple resources in its spec.
 		if len(p.Resource) > 1 {
 			for _, r := range p.Resource {
 
 				policyList := make([]ast.Expr, 4)
 
 				policyList[0] = &ast.KeyValueExpr{
-					Key:   ast.NewIdent("Effect"),
+					Key:   ast.NewIdent(effect),
 					Value: buildStrings(p.Effect),
 				}
 				policyList[1] = &ast.KeyValueExpr{
-					Key:   ast.NewIdent("Action"),
+					Key:   ast.NewIdent(action),
 					Value: buildStrings(p.Action),
 				}
 
 				policyList[2] = &ast.KeyValueExpr{
-					Key:   ast.NewIdent("Resource"),
+					Key:   ast.NewIdent(resource),
 					Value: buildStrings(r),
 				}
 
 				policyList[3] = &ast.KeyValueExpr{
-					Key:   ast.NewIdent("PolicyCondition"),
+					Key:   ast.NewIdent(policycondition),
 					Value: buildKeyValueExpr(p.Condition),
 				}
 				exprs = append(exprs, &ast.CompositeLit{Elts: policyList})
@@ -141,21 +144,21 @@ func GenerateIAMPolicy(input, output, pkg string) {
 		policyList := make([]ast.Expr, 4)
 
 		policyList[0] = &ast.KeyValueExpr{
-			Key:   ast.NewIdent("Effect"),
+			Key:   ast.NewIdent(effect),
 			Value: buildStrings(p.Effect),
 		}
 		policyList[1] = &ast.KeyValueExpr{
-			Key:   ast.NewIdent("Action"),
+			Key:   ast.NewIdent(action),
 			Value: buildStrings(p.Action),
 		}
 
 		policyList[2] = &ast.KeyValueExpr{
-			Key:   ast.NewIdent("Resource"),
+			Key:   ast.NewIdent(resource),
 			Value: buildStrings(p.Resource[0]),
 		}
 
 		policyList[3] = &ast.KeyValueExpr{
-			Key:   ast.NewIdent("PolicyCondition"),
+			Key:   ast.NewIdent(policycondition),
 			Value: buildKeyValueExpr(p.Condition),
 		}
 

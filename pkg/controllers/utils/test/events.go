@@ -72,7 +72,7 @@ func NewEvent(we watch.Event) Event {
 		te.ObjType = "namespace"
 		te.Name = obj.Name
 	case *albv1aplha1.AWSLoadBalancerController:
-		te.ObjType = "externaldns"
+		te.ObjType = "AWSLoadBalancerController"
 		te.Name = obj.Name
 	case *cco.CredentialsRequest:
 		te.ObjType = "credentialsrequest"

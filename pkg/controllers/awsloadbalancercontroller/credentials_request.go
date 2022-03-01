@@ -36,11 +36,11 @@ func (r *AWSLoadBalancerControllerReconciler) ensureCredentialsRequest(ctx conte
 	credReq := createCredentialsRequestName(credentialRequestName)
 
 	reqLogger := log.FromContext(ctx).WithValues("credentialsrequest", credReq)
-	reqLogger.Info("reconciling credentials secret for externalDNS instance")
+	reqLogger.Info("reconciling credentials secret for aws-load-balancer instance")
 
 	exists, current, err := r.currentCredentialsRequest(ctx, credReq)
 	if err != nil {
-		reqLogger.Error(err, "failed to find existing credential request: ", credReq)
+		reqLogger.Error(err, "failed to find existing credential request")
 		return err
 	}
 

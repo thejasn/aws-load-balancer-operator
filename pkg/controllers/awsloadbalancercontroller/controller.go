@@ -39,7 +39,7 @@ import (
 const (
 	controllerName               = "cluster"
 	controllerSecretName         = "aws-load-balancer-operator-credentials"
-	controllerServiceAccountName = "cluster-sa"
+	controllerServiceAccountName = "aws-load-balancer-operator-controller-manager"
 )
 
 // AWSLoadBalancerControllerReconciler reconciles a AWSLoadBalancerController object

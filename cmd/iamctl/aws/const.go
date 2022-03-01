@@ -1,6 +1,11 @@
 package aws
 
-const filetemplate = `
+const (
+	policycondition = "PolicyCondition"
+	resource        = "Resource"
+	effect          = "Effect"
+	action          = "Action"
+	filetemplate    = `
 package main
 
 import cco "github.com/openshift/cloud-credential-operator/pkg/apis/cloudcredential/v1"
@@ -14,3 +19,4 @@ func GetIAMPolicy() IAMPolicy {
     return IAMPolicy{}
 }
 `
+)
