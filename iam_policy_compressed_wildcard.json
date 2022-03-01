@@ -1,0 +1,93 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "iam:CreateServiceLinkedRole"
+            ],
+            "Resource": "*",
+            "Condition": {
+                "StringEquals": {
+                    "iam:AWSServiceName": "elasticloadbalancing.amazonaws.com"
+                }
+            }
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ec2:Describe*",
+                "ec2:GetCoipPoolUsage",
+                "ec2:*SecurityGroupIngress",
+                "ec2:CreateSecurityGroup",
+                "elasticloadbalancing:SetWebAcl",
+                "elasticloadbalancing:*Listener*",
+                "elasticloadbalancing:*Rule",
+                "elasticloadbalancing:Describe*",
+                "cognito-idp:DescribeUserPoolClient",
+                "acm:*Certificate*",
+                "iam:*Certificate*",
+                "waf-regional:*",
+                "wafv2:*WebACL*",
+                "shield:*",
+                "elasticloadbalancing:Set*",
+                "elasticloadbalancing:*LoadBalancer*",
+                "elasticloadbalancing:*TargetGroup*",
+                "ec2:DeleteSecurityGroup"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ec2:*Tags"
+            ],
+            "Resource": "arn:aws:ec2:*:*:security-group/*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "elasticloadbalancing:CreateLoadBalancer",
+                "elasticloadbalancing:CreateTargetGroup"
+            ],
+            "Resource": "*",
+            "Condition": {
+                "Null": {
+                    "aws:RequestTag/elbv2.k8s.aws/cluster": "false"
+                }
+            }
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "elasticloadbalancing:*Tags"
+            ],
+            "Resource": [
+                "arn:aws:elasticloadbalancing:*:*:targetgroup/*/*",
+                "arn:aws:elasticloadbalancing:*:*:loadbalancer/*/*/*"
+            ],
+            "Condition": {
+                "Null": {
+                    "aws:RequestTag/elbv2.k8s.aws/cluster": "true",
+                    "aws:ResourceTag/elbv2.k8s.aws/cluster": "false"
+                }
+            }
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "elasticloadbalancing:*Tags"
+            ],
+            "Resource": [
+                "arn:aws:elasticloadbalancing:*:*:listener*/*/*/*/*"
+            ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "elasticloadbalancing:*Targets"
+            ],
+            "Resource": "arn:aws:elasticloadbalancing:*:*:targetgroup/*/*"
+        }
+    ]
+}
