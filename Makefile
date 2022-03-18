@@ -138,9 +138,15 @@ test: manifests generate lint fmt vet envtest ## Run tests.
 
 ##@ Build
 
+##@ Build
+GO=GO111MODULE=on GOFLAGS=-mod=vendor CGO_ENABLED=0 go
+
+build-operator: ## Build operator binary, no additional checks or code generation
+	$(GO) build -o bin/aws-load-balancer-operator main.go
+
 .PHONY: build
 build: generate fmt vet ## Build manager binary.
-	go build -mod=vendor -o bin/manager main.go
+	go build -mod=vendor -o bin/aws-load-balancer-operator main.go
 
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.

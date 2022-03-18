@@ -1,0 +1,13 @@
+FROM registry.ci.openshift.org/ocp/builder:rhel-8-golang-1.17-openshift-4.10 AS builder
+WORKDIR /aws-load-balancer-operator
+COPY . .
+RUN make build-operator
+
+FROM registry.ci.openshift.org/ocp/4.10:base
+COPY --from=builder /aws-load-balancer-operator/bin/aws-load-balancer-operator /usr/bin/
+COPY --from=builder /aws-load-balancer-operator/bundle/manifests /manifests
+COPY --from=builder /aws-load-balancer-operator/bundle/metadata /metadata
+ENTRYPOINT ["/usr/bin/aws-load-balancer-operator"]
+LABEL io.k8s.display-name="OpenShift AWS LoadBalancer Operator" \
+      io.k8s.description="This is a component of OpenShift Container Platform and manages the lifecycle of AWS LoadBalancerController." \
+      maintainer="<aos-network-edge-staff@redhat.com>"
