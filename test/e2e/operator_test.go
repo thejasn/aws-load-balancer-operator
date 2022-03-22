@@ -7,9 +7,7 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"reflect"
 	"testing"
-	"time"
 
 	arv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -19,7 +17,6 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	kscheme "k8s.io/client-go/kubernetes/scheme"
 
@@ -49,64 +46,6 @@ func init() {
 	utilruntime.Must(cco.Install(scheme))
 	utilruntime.Must(networkingv1.AddToScheme(scheme))
 	utilruntime.Must(arv1.AddToScheme(scheme))
-}
-
-func TestMain(m *testing.M) {
-	kubeConfig, err := config.GetConfig()
-	if err != nil {
-		fmt.Printf("failed to get kube config: %s\n", err)
-		os.Exit(1)
-	}
-	cl, err := client.New(kubeConfig, client.Options{})
-	if err != nil {
-		fmt.Printf("failed to create kube client: %s\n", err)
-		os.Exit(1)
-	}
-	kubeClient = cl
-
-	if err := kubeClient.Get(context.TODO(), types.NamespacedName{Name: "cluster"}, &infraConfig); err != nil {
-		fmt.Printf("failed to get infrastructure config: %v\n", err)
-		os.Exit(1)
-	}
-
-	if err = ensureCredentialsRequest(); err != nil {
-		fmt.Printf("failed to create credentialsrequest for operator due to: %v\n", err)
-	}
-
-	os.Exit(m.Run())
-}
-
-func waitForDeploymentStatusCondition(t *testing.T, cl client.Client, deploymentName types.NamespacedName, conditions ...appsv1.DeploymentCondition) error {
-	t.Helper()
-	return wait.PollImmediate(1*time.Second, 5*time.Minute, func() (bool, error) {
-		dep := &appsv1.Deployment{}
-		if err := cl.Get(context.TODO(), deploymentName, dep); err != nil {
-			t.Logf("failed to get deployment %s: %v", deploymentName.Name, err)
-			return false, nil
-		}
-
-		expected := deploymentConditionMap(conditions...)
-		current := deploymentConditionMap(dep.Status.Conditions...)
-		return conditionsMatchExpected(expected, current), nil
-	})
-}
-
-func deploymentConditionMap(conditions ...appsv1.DeploymentCondition) map[string]string {
-	conds := map[string]string{}
-	for _, cond := range conditions {
-		conds[string(cond.Type)] = string(cond.Status)
-	}
-	return conds
-}
-
-func conditionsMatchExpected(expected, actual map[string]string) bool {
-	filtered := map[string]string{}
-	for k := range actual {
-		if _, comparable := expected[k]; comparable {
-			filtered[k] = actual[k]
-		}
-	}
-	return reflect.DeepEqual(expected, filtered)
 }
 
 func ensureCredentialsRequest() error {
@@ -172,6 +111,31 @@ func newAWSLoadBalancerController(name types.NamespacedName) albo.AWSLoadBalance
 	}
 }
 
+func TestMain(m *testing.M) {
+	kubeConfig, err := config.GetConfig()
+	if err != nil {
+		fmt.Printf("failed to get kube config: %s\n", err)
+		os.Exit(1)
+	}
+	cl, err := client.New(kubeConfig, client.Options{})
+	if err != nil {
+		fmt.Printf("failed to create kube client: %s\n", err)
+		os.Exit(1)
+	}
+	kubeClient = cl
+
+	if err := kubeClient.Get(context.TODO(), types.NamespacedName{Name: "cluster"}, &infraConfig); err != nil {
+		fmt.Printf("failed to get infrastructure config: %v\n", err)
+		os.Exit(1)
+	}
+
+	if err = ensureCredentialsRequest(); err != nil {
+		fmt.Printf("failed to create credentialsrequest for operator due to: %v\n", err)
+	}
+
+	os.Exit(m.Run())
+}
+
 func TestOperatorAvailable(t *testing.T) {
 	expected := []appsv1.DeploymentCondition{
 		{Type: appsv1.DeploymentAvailable, Status: corev1.ConditionTrue},
@@ -188,19 +152,45 @@ func TestOperatorAvailable(t *testing.T) {
 func TestAWSLoadBalancerControllerWithDefaultIngressClass(t *testing.T) {
 	t.Log("Creating aws load balancer controller instance with default ingress class")
 
-	name := types.NamespacedName{Name: "aws-load-balancer-controller-cluster", Namespace: "aws-load-balancer-operator"}
+	name := types.NamespacedName{Name: "cluster", Namespace: "aws-load-balancer-operator"}
 	alb := newAWSLoadBalancerController(name)
-	if err := kubeClient.Create(context.TODO(), &alb); err != nil {
-		t.Fatalf("Failed to create aws load balancer controller %q: %v", name, err)
+	if err := kubeClient.Create(context.TODO(), &alb); err != nil && !errors.IsAlreadyExists(err) {
+		t.Fatalf("failed to create aws load balancer controller %q: %v", name, err)
 	}
-	defer func() {
-		_ = kubeClient.Delete(context.TODO(), &alb)
-	}()
 
 	expected := []appsv1.DeploymentCondition{
 		{Type: appsv1.DeploymentAvailable, Status: corev1.ConditionTrue},
 	}
-	if err := waitForDeploymentStatusCondition(t, kubeClient, name, expected...); err != nil {
-		t.Errorf("Did not get expected available condition: %v", err)
+	deploymentName := types.NamespacedName{Name: "aws-load-balancer-controller-cluster", Namespace: "aws-load-balancer-operator"}
+	if err := waitForDeploymentStatusCondition(t, kubeClient, deploymentName, expected...); err != nil {
+		t.Errorf("did not get expected available condition: %v", err)
+	}
+
+	testWorkloadNamespace := "aws-load-balancer-test"
+	t.Logf("Ensuring test workload namespace %s", testWorkloadNamespace)
+	err := kubeClient.Create(context.TODO(), &corev1.Namespace{ObjectMeta: v1.ObjectMeta{Name: testWorkloadNamespace}})
+	if err != nil && !errors.IsAlreadyExists(err) {
+		t.Fatalf("failed to ensure namespace %s: %v", testWorkloadNamespace, err)
+	}
+
+	echopod := buildEchoPod("echoserver", testWorkloadNamespace)
+	err = kubeClient.Create(context.TODO(), echopod)
+	if err != nil && !errors.IsAlreadyExists(err) {
+		t.Fatalf("failed to ensure echo pod %s: %v", echopod.Name, err)
+	}
+
+	echosvc := buildEchoService("echoserver", testWorkloadNamespace)
+	err = kubeClient.Create(context.TODO(), echosvc)
+	if err != nil && !errors.IsAlreadyExists(err) {
+		t.Fatalf("failed to ensure echo service %s: %v", echosvc.Name, err)
+	}
+
+	echoIng := buildDefaultEchoIngress("echoserver", testWorkloadNamespace, echosvc.Name, echosvc.Spec.Ports[0].Port)
+	err = kubeClient.Create(context.TODO(), echosvc)
+	if err != nil && !errors.IsAlreadyExists(err) {
+		t.Fatalf("failed to ensure echo service %s: %v", echosvc.Name, err)
+	}
+	if err := waitForIngressStatusCondition(t, kubeClient, deploymentName, expected...); err != nil {
+		t.Errorf("did not get expected available condition: %v", err)
 	}
 }
