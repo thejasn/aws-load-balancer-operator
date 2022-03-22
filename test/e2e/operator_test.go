@@ -29,7 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
-	networkingolmv1alpha1 "github.com/openshift/aws-load-balancer-operator/api/v1alpha1"
+	albo "github.com/openshift/aws-load-balancer-operator/api/v1alpha1"
 )
 
 var (
@@ -43,7 +43,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(cco.Install(scheme))
-	utilruntime.Must(networkingolmv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(albo.AddToScheme(scheme))
 	utilruntime.Must(cco.AddToScheme(scheme))
 	utilruntime.Must(configv1.Install(scheme))
 	utilruntime.Must(cco.Install(scheme))
@@ -76,16 +76,12 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func waitForOperatorDeploymentStatusCondition(t *testing.T, cl client.Client, conditions ...appsv1.DeploymentCondition) error {
+func waitForDeploymentStatusCondition(t *testing.T, cl client.Client, deploymentName types.NamespacedName, conditions ...appsv1.DeploymentCondition) error {
 	t.Helper()
 	return wait.PollImmediate(1*time.Second, 5*time.Minute, func() (bool, error) {
 		dep := &appsv1.Deployment{}
-		depNamespacedName := types.NamespacedName{
-			Name:      operatorName,
-			Namespace: operatorNamespace,
-		}
-		if err := cl.Get(context.TODO(), depNamespacedName, dep); err != nil {
-			t.Logf("failed to get deployment %s: %v", depNamespacedName.Name, err)
+		if err := cl.Get(context.TODO(), deploymentName, dep); err != nil {
+			t.Logf("failed to get deployment %s: %v", deploymentName.Name, err)
 			return false, nil
 		}
 
@@ -164,11 +160,47 @@ func ensureCredentialsRequest() error {
 	return nil
 }
 
+func newAWSLoadBalancerController(name types.NamespacedName) albo.AWSLoadBalancerController {
+	return albo.AWSLoadBalancerController{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      name.Name,
+			Namespace: name.Namespace,
+		},
+		Spec: albo.AWSLoadBalancerControllerSpec{
+			SubnetTagging: albo.AutoSubnetTaggingPolicy,
+		},
+	}
+}
+
 func TestOperatorAvailable(t *testing.T) {
 	expected := []appsv1.DeploymentCondition{
 		{Type: appsv1.DeploymentAvailable, Status: corev1.ConditionTrue},
 	}
-	if err := waitForOperatorDeploymentStatusCondition(t, kubeClient, expected...); err != nil {
+	name := types.NamespacedName{
+		Name:      operatorName,
+		Namespace: operatorNamespace,
+	}
+	if err := waitForDeploymentStatusCondition(t, kubeClient, name, expected...); err != nil {
+		t.Errorf("Did not get expected available condition: %v", err)
+	}
+}
+
+func TestAWSLoadBalancerControllerWithDefaultIngressClass(t *testing.T) {
+	t.Log("Creating aws load balancer controller instance with default ingress class")
+
+	name := types.NamespacedName{Name: "aws-load-balancer-controller-cluster", Namespace: "aws-load-balancer-operator"}
+	alb := newAWSLoadBalancerController(name)
+	if err := kubeClient.Create(context.TODO(), &alb); err != nil {
+		t.Fatalf("Failed to create aws load balancer controller %q: %v", name, err)
+	}
+	defer func() {
+		_ = kubeClient.Delete(context.TODO(), &alb)
+	}()
+
+	expected := []appsv1.DeploymentCondition{
+		{Type: appsv1.DeploymentAvailable, Status: corev1.ConditionTrue},
+	}
+	if err := waitForDeploymentStatusCondition(t, kubeClient, name, expected...); err != nil {
 		t.Errorf("Did not get expected available condition: %v", err)
 	}
 }
