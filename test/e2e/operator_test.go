@@ -4,10 +4,13 @@
 package e2e
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
+	"time"
 
 	arv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -17,6 +20,8 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	kscheme "k8s.io/client-go/kubernetes/scheme"
 
@@ -31,10 +36,12 @@ import (
 
 var (
 	kubeClient        client.Client
+	kubeClientSet     *kubernetes.Clientset
 	scheme            = kscheme.Scheme
 	infraConfig       configv1.Infrastructure
 	operatorName      = "aws-load-balancer-operator-controller-manager"
 	operatorNamespace = "aws-load-balancer-operator"
+	defaultTimeout    = 5 * time.Minute
 )
 
 func init() {
@@ -129,6 +136,12 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
+	kubeClientSet, err = kubernetes.NewForConfig(kubeConfig)
+	if err != nil {
+		fmt.Printf("failed to create kube clientset: %s\n", err)
+		os.Exit(1)
+	}
+
 	if err = ensureCredentialsRequest(); err != nil {
 		fmt.Printf("failed to create credentialsrequest for operator due to: %v\n", err)
 	}
@@ -144,7 +157,7 @@ func TestOperatorAvailable(t *testing.T) {
 		Name:      operatorName,
 		Namespace: operatorNamespace,
 	}
-	if err := waitForDeploymentStatusCondition(t, kubeClient, name, expected...); err != nil {
+	if err := waitForDeploymentStatusCondition(t, kubeClient, defaultTimeout, name, expected...); err != nil {
 		t.Errorf("Did not get expected available condition: %v", err)
 	}
 }
@@ -162,7 +175,7 @@ func TestAWSLoadBalancerControllerWithDefaultIngressClass(t *testing.T) {
 		{Type: appsv1.DeploymentAvailable, Status: corev1.ConditionTrue},
 	}
 	deploymentName := types.NamespacedName{Name: "aws-load-balancer-controller-cluster", Namespace: "aws-load-balancer-operator"}
-	if err := waitForDeploymentStatusCondition(t, kubeClient, deploymentName, expected...); err != nil {
+	if err := waitForDeploymentStatusCondition(t, kubeClient, defaultTimeout, deploymentName, expected...); err != nil {
 		t.Errorf("did not get expected available condition: %v", err)
 	}
 
@@ -185,12 +198,55 @@ func TestAWSLoadBalancerControllerWithDefaultIngressClass(t *testing.T) {
 		t.Fatalf("failed to ensure echo service %s: %v", echosvc.Name, err)
 	}
 
-	echoIng := buildDefaultEchoIngress("echoserver", testWorkloadNamespace, echosvc.Name, echosvc.Spec.Ports[0].Port)
-	err = kubeClient.Create(context.TODO(), echosvc)
+	t.Log("Creating Ingress Resource with default ingress class")
+	ingName := types.NamespacedName{Name: "echoserver", Namespace: testWorkloadNamespace}
+	ingAnnotations := map[string]string{
+		"alb.ingress.kubernetes.io/scheme":      "internet-facing",
+		"alb.ingress.kubernetes.io/target-type": "instance",
+	}
+	echoIng := buildEchoIngress(ingName, ingAnnotations, echosvc)
+	err = kubeClient.Create(context.TODO(), echoIng)
 	if err != nil && !errors.IsAlreadyExists(err) {
 		t.Fatalf("failed to ensure echo service %s: %v", echosvc.Name, err)
 	}
-	if err := waitForIngressStatusCondition(t, kubeClient, deploymentName, expected...); err != nil {
+
+	var address string
+	if address, err = verifyIngress(t, kubeClient, defaultTimeout, ingName); err != nil {
 		t.Errorf("did not get expected available condition: %v", err)
+	}
+
+	t.Logf("Testing aws load balancer for ingress traffic at address %s", address)
+	for i, rule := range echoIng.Spec.Rules {
+		clientPod := buildCurlPod(fmt.Sprintf("clientpod-%d", i), testWorkloadNamespace, rule.Host, address)
+		if err := kubeClient.Create(context.TODO(), clientPod); err != nil {
+			t.Fatalf("failed to create pod %s/%s: %v", clientPod.Namespace, clientPod.Name, err)
+		}
+
+		err = wait.PollImmediate(1*time.Second, 10*time.Minute, func() (bool, error) {
+			readCloser, err := kubeClientSet.CoreV1().Pods(clientPod.Namespace).GetLogs(clientPod.Name, &corev1.PodLogOptions{
+				Container: "curl",
+				Follow:    false,
+			}).Stream(context.TODO())
+			if err != nil {
+				t.Logf("failed to read output from pod %s: %v (retrying)", clientPod.Name, err)
+				return false, nil
+			}
+			scanner := bufio.NewScanner(readCloser)
+			defer func() {
+				if err := readCloser.Close(); err != nil {
+					t.Errorf("failed to close reader for pod %s: %v", clientPod.Name, err)
+				}
+			}()
+			for scanner.Scan() {
+				line := scanner.Text()
+				if strings.Contains(line, "HTTP/1.1 200 OK") {
+					return true, nil
+				}
+			}
+			return false, nil
+		})
+		if err != nil {
+			t.Fatalf("failed to observe the expected log message: %v", err)
+		}
 	}
 }
